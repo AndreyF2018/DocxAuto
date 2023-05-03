@@ -68,13 +68,8 @@ def vulnerabilities_search_BDU(records_CVE):
         for i in range(len(CVE_identifiers)):
             WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="s2id_VulFilterForm_idval"]/a/span[2]'))).click()
-            #button_search = driver.find_element(By.XPATH, value='//*[@id="s2id_VulFilterForm_idval"]/a/span[2]')
-            #button_submit = driver.find_element(By.XPATH, value='//*[@id="vul-filter-form"]/div[11]/input[2]')
-            #button_search.click()
             WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="s2id_autogen17_search"]'))).send_keys(CVE_identifiers[i])
-            #search_str = driver.find_element(By.XPATH, value='//*[@id="s2id_autogen17_search"]')
-            #search_str.send_keys(CVE_identifiers[i])
             time.sleep(3)
             search_id = driver.find_element(By.XPATH, value='//*[@id="select2-results-17"]/li').text
             if (search_id == "Совпадений не найдено"):
@@ -89,7 +84,6 @@ def vulnerabilities_search_BDU(records_CVE):
                 actions.perform()
                 WebDriverWait(driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, '//*[@id="vul-filter-form"]/div[11]/input[2]'))).click()
-                #button_submit.click()
                 time.sleep(4)
                 value = driver.find_element(By.XPATH, value='//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a').text
                 print(CVE_identifiers[i], " --- ", value)
@@ -97,7 +91,6 @@ def vulnerabilities_search_BDU(records_CVE):
                 time.sleep(2)
             records_BDU.append(value)
     except BaseException as exc:
-        #driver.close()
         print (exc)
     driver.close()
     return records_BDU
@@ -147,7 +140,6 @@ def danger_lvl_form(records_CVE):
                 danger_lvl_form(records_CVE)
             else:
                 sys.exit(exc)
-                #raise (exc)
     driver.close()
     return result
 
@@ -203,8 +195,6 @@ def table_view(table):
 
 def save_doc(doc_path, document):
     document.add_page_break()
-    #base_name = path.basename(doc_path)
-    #doc_name = path.splitext(base_name)[0]
     document.save(doc_path)
     print("Документ успешно сохранён")
     print ()
@@ -262,7 +252,6 @@ def create_table_with_BDU(doc_path, document, records_CVE):
 
 
 def init_doc(doc_path, soft_name):
-    #soft_name = input("Название ПО: ")
     document = Document(doc_path)
     head_two = document.add_heading('', 2)
     text_head_two = head_two.add_run(soft_name)
@@ -282,7 +271,6 @@ def init_doc(doc_path, soft_name):
         records_CVE = create_table_with_BDU(doc_path, document, records_CVE)
     else:
         records_CVE = create_table_CVE(doc_path, document, records_CVE)
-    # records_CVE = create_table_with_BDU(document, soft_name) if is_BDU == "y" else create_table_CVE(document, soft_name)
     return (records_CVE)
 
 def set_doc_path():
@@ -295,16 +283,16 @@ def set_doc_path():
         return doc_path
 def read_txt_file():
     txt_path = filedialog.askopenfilename(title="Выбор текстового файла (txt)", defaultextension="txt")
-    full_name = path.basename(txt_path)
-    txt_ext = path.splitext(full_name)[1]
+    base_name = path.basename(txt_path)
+    txt_ext = path.splitext(base_name)[1]
     if (txt_ext != ".txt"):
         sys.exit("Только файл с расширением .txt")
     else:
-        file_txt = open(full_name, "r")
+        file_txt = open(txt_path, "r")
         lines = file_txt.readlines()
         return lines
 def copy_doc(doc_path):
-    document = Document(doc_path)
+    document = Document()
     dir_name = path.dirname(doc_path)
     base_name = path.basename(doc_path)
     doc_name = path.splitext(base_name)[0]
@@ -319,7 +307,7 @@ def main ():
     doc_path = copy_doc(doc_path)
     for soft_name in soft_names:
         soft_name = soft_name.strip()
-        records_CVE = init_doc(doc_path, soft_name)
+        init_doc(doc_path, soft_name)
 
 if __name__ == '__main__':
     main()
