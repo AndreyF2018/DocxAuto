@@ -17,6 +17,22 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from tkinter import filedialog
 
+
+def get_empty_CVE(records_CVE):
+    records_CVE.append([])
+    records_CVE[0].append("Отсутствует")
+    records_CVE[0].append("Отсутствует")
+    return records_CVE
+
+def get_found_CVE(rows, cols, records, driver):
+    for r in range(1, int(rows) + 1):
+        records.append([])
+        for c in range(1, cols + 1):
+            value = driver.find_element(By.XPATH, value='//*[@id="TableWithRules"]/table/tbody/tr[' + str(
+                r) + ']/td[' + str(c) + ']').text
+            records[r - 1].append(value)
+    driver.close()
+    return records
 def vulnerabilities_search_CVE(soft_name):
     try:
         driver = webdriver.Chrome()
@@ -27,33 +43,40 @@ def vulnerabilities_search_CVE(soft_name):
     elem = driver.find_element(By.NAME, "keyword")
     elem.send_keys(soft_name)
     elem.submit()
-    rows = len(driver.find_elements(By.XPATH, value='//*[@id="TableWithRules"]/table/tbody/tr'))
-    if (rows == 0):
-        sys.exit("Уязвимостей не найдено")
+    #rows = len(driver.find_elements(By.XPATH, value='//*[@id="TableWithRules"]/table/tbody/tr'))
+    rows = driver.find_element(By.XPATH, '// *[ @ id = "CenterPane"] / div[1] / b').text
     print(soft_name)
     print("Найдено уязвимостей: ", rows)
     cols = 2
-    records = []
-    if (rows == 0):
-        records.append([])
-        records[0].append("Отсутствует")
-        records[0].append("Отсутствует")
+    records_CVE = []
+    if (int(rows) == 0):
+        records_CVE = get_empty_CVE(records_CVE)
         driver.close()
-        return records
+        return records_CVE
     else:
-        for r in range(1, rows + 1):
-            records.append([])
-            for c in range(1, cols + 1):
-                value = driver.find_element(By.XPATH, value='//*[@id="TableWithRules"]/table/tbody/tr[' + str(r) + ']/td[' + str(c) + ']').text
-                records[r - 1].append(value)
-        driver.close()
-        return records
-
+        if (int(rows) > 300):
+            print ("Количество найденных уязвимостей для " + soft_name + " слишком велико")
+            print ("Возможно, не все они в действительности являются уязвимостями данного ПО")
+            print ("Полное выполнение программы займёт больше 1 часа")
+            flag = input ("Продолжить генерацию перечня уязвимостей для " + soft_name + "? [y/any other letter]: ")
+            if (flag == "y"):
+                records_CVE = get_found_CVE(rows, cols, records_CVE, driver)
+                return records_CVE
+            else:
+                records_CVE = get_empty_CVE(records_CVE)
+                return records_CVE
+        else:
+            records_CVE = get_found_CVE(rows, cols, records_CVE, driver)
+            return records_CVE
 
 def vulnerabilities_search_BDU(records_CVE):
     records_BDU = []
     records_CVE = np.array(records_CVE)
     CVE_identifiers = records_CVE[:, 0]
+    if (CVE_identifiers[0] == "Отсутствует"):
+        value = "Отсутствует"
+        records_BDU.append(value)
+        return records_BDU
     try :
         driver = webdriver.Firefox()
     except:
@@ -95,16 +118,19 @@ def vulnerabilities_search_BDU(records_CVE):
     driver.close()
     return records_BDU
 
-
 def danger_lvl_form(records_CVE):
     print("Формирование уровней опасности уязвимостей...")
     records_CVE = np.array(records_CVE)
+    result = []
     CVE_identifiers = records_CVE[:, 0]
+    if (CVE_identifiers[0] == "Отсутствует"):
+        danger_lvl_text = "Отсутствует"
+        result.append(danger_lvl_text)
+        return result
     low = "Низкий "
     medium = "Средний "
     high = "Высокий "
     critical = "Критический "
-    result = []
     try:
         driver = webdriver.Chrome()
     except:
@@ -142,7 +168,6 @@ def danger_lvl_form(records_CVE):
                 sys.exit(exc)
     driver.close()
     return result
-
 
 def table_view(table):
     for row in table.rows:
@@ -192,13 +217,11 @@ def table_view(table):
         shading_elm_4 = parse_xml(r'<w:shd {} w:fill="#FFC000"/>'.format(nsdecls('w')))
         table.rows[0].cells[3]._tc.get_or_add_tcPr().append(shading_elm_4)
 
-
 def save_doc(doc_path, document):
     document.add_page_break()
     document.save(doc_path)
     print("Документ успешно сохранён")
     print ()
-
 
 def create_table_CVE(doc_path, document, records_CVE):
     danger_lvl_text = np.array(danger_lvl_form(records_CVE))
@@ -217,7 +240,6 @@ def create_table_CVE(doc_path, document, records_CVE):
     table_view(table)
     save_doc(doc_path, document)
     return (records_CVE)
-
 
 def create_table_with_BDU(doc_path, document, records_CVE):
     try:
@@ -250,7 +272,6 @@ def create_table_with_BDU(doc_path, document, records_CVE):
     save_doc(doc_path, document)
     return (records_CVE)
 
-
 def init_doc(doc_path, soft_name):
     document = Document(doc_path)
     head_two = document.add_heading('', 2)
@@ -261,8 +282,11 @@ def init_doc(doc_path, soft_name):
     text_head_two.font.all_caps = True
 
     records_CVE = np.array(vulnerabilities_search_CVE(soft_name))
+    if (records_CVE[0,0] == "Отсутствует"):
+        records_CVE = create_table_with_BDU(doc_path, document, records_CVE)
+        return records_CVE
     vul_count = len(records_CVE)
-    waiting_time = int((vul_count * 10) / 60)
+    waiting_time = int((vul_count * 11) / 60)
     if (waiting_time < 1):
         waiting_time = 1
     print("Примерное время ожидания для формирования идентификаторов ФСТЭК: ", waiting_time, " минут(а/ы)")
@@ -281,6 +305,7 @@ def set_doc_path():
         sys.exit("Только файл с расширением .docx")
     else:
         return doc_path
+
 def read_txt_file():
     txt_path = filedialog.askopenfilename(title="Выбор текстового файла (txt)", defaultextension="txt")
     base_name = path.basename(txt_path)
@@ -291,6 +316,7 @@ def read_txt_file():
         file_txt = open(txt_path, "r")
         lines = file_txt.readlines()
         return lines
+
 def copy_doc(doc_path):
     document = Document()
     dir_name = path.dirname(doc_path)
