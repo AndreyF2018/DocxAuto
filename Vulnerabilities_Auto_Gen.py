@@ -1,6 +1,7 @@
 import sys
 import docx.shared
 import time
+import pandas
 import numpy as np
 from os import path
 from docx import Document
@@ -221,7 +222,7 @@ def save_doc(doc_path, document):
     document.add_page_break()
     document.save(doc_path)
     print("Документ успешно сохранён")
-    print ()
+    print()
 
 def create_table_CVE(doc_path, document, records_CVE):
     danger_lvl_text = np.array(danger_lvl_form(records_CVE))
@@ -327,12 +328,31 @@ def copy_doc(doc_path):
     document.save(new_doc_path)
     return new_doc_path
 
-def main ():
+def read_xlsx():
+    xl_path = filedialog.askopenfilename(title="Выбор файла Excel (xlsx)", defaultextension="xlsx")
+    base_name = path.basename(xl_path)
+    xl_ext = path.splitext(base_name)[1]
+    if (xl_ext != ".xlsx"):
+        sys.exit("Только файл с расширением .xlsx")
+    else:
+        xl_file = pandas.read_excel(base_name)
+        soft_names = xl_file["Установленное ПО"].tolist()
+        return soft_names
+
+
+def old_txt_main():
     soft_names = read_txt_file()
     doc_path = set_doc_path()
     doc_path = copy_doc(doc_path)
     for soft_name in soft_names:
         soft_name = soft_name.strip()
+        init_doc(doc_path, soft_name)
+
+def main():
+    soft_names = read_xlsx()
+    doc_path = set_doc_path()
+    doc_path = copy_doc(doc_path)
+    for soft_name in soft_names:
         init_doc(doc_path, soft_name)
 
 if __name__ == '__main__':
