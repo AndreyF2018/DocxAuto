@@ -87,12 +87,15 @@ def vulnerabilities_search_BDU(records_CVE):
         driver.get("https://bdu.fstec.ru/vul/")
         time.sleep(5)
         print (driver.title)
+        default_value = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
         #button_search = driver.find_element(By.XPATH, value='//*[@id="s2id_VulFilterForm_idval"]/a/span[2]')
         #button_submit = driver.find_element(By.XPATH, value='//*[@id="vul-filter-form"]/div[11]/input[2]')
     except BaseException as exc:
         print (exc.__traceback__)
         sys.exit("Возникла ошибка с доступом к сайту ФСТЭК")
-    for i in range(len(CVE_identifiers)):
+    i = 0
+    while i < len(CVE_identifiers):
         try:
             WebDriverWait(driver, 40).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="s2id_VulFilterForm_idval"]/a/span[2]'))).click()
@@ -100,10 +103,14 @@ def vulnerabilities_search_BDU(records_CVE):
             #driver.execute_script("arguments[0].click();", button_search)
             WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="s2id_autogen17_search"]'))).send_keys(CVE_identifiers[i])
-            time.sleep(3)
+            time.sleep(5)
             search_id = WebDriverWait(driver, 40).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="select2-results-17"]/li'))).text
-            if (search_id == "Совпадений не найдено"):
+            while (search_id == "Поиск"):
+                time.sleep(1)
+                search_id = WebDriverWait(driver, 40).until(
+                    EC.presence_of_element_located((By.XPATH, '//*[@id="select2-results-17"]/li'))).text
+            if (search_id != str(CVE_identifiers[i])):
                 value = "Отсутствует"
                 time.sleep(2)
                 driver.find_element(By.ID, value='select2-drop-mask').click()
@@ -111,22 +118,25 @@ def vulnerabilities_search_BDU(records_CVE):
                 actions = ActionChains(driver)
                 actions.send_keys(Keys.ENTER)
                 actions.perform()
-                #WebDriverWait(driver, 20).until(
-                 #   EC.element_to_be_clickable((By.XPATH, '//*[@id="vul-filter-form"]/div[11]/input[2]'))).click()
-                button_submit = driver.find_element(By.XPATH, value='//*[@id="vul-filter-form"]/div[11]/input[2]')
-                driver.execute_script("arguments[0].click();", button_submit)
-                time.sleep(4)
+                WebDriverWait(driver, 20).until(
+                    EC.element_to_be_clickable((By.XPATH, '//*[@id="vul-filter-form"]/div[11]/input[2]'))).click()
+                #button_submit = driver.find_element(By.XPATH, value='//*[@id="vul-filter-form"]/div[11]/input[2]')
+                #driver.execute_script("arguments[0].click();", button_submit)
+                time.sleep(3)
                 #value = driver.find_element(By.XPATH, value='//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a').text
                 value = WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
                 time.sleep(2)
+                while (value == default_value):
+                    time.sleep(1)
+                    value = WebDriverWait(driver, 20).until(
+                        EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
+            print(CVE_identifiers[i], " --- ", value)
+            print()
+            records_BDU.append(value)
         except BaseException as exc:
-            print("Не удалось произвести соответствие уязвимости " + CVE_identifiers[i])
-            print (exc)
-            value = "ОШИБКА!"
-        print(CVE_identifiers[i], " --- ", value)
-        print()
-        records_BDU.append(value)
+            i -= 1
+        i += 1
     driver.close()
     return records_BDU
 
@@ -148,7 +158,8 @@ def danger_lvl_form(records_CVE):
     except:
         sys.exit("Возникла ошибка с веб драйвером Chrome")
     time.sleep(1)
-    for i in range(len(CVE_identifiers)):
+    i = 0
+    while i < len(CVE_identifiers):
         try:
             driver.get("https://nvd.nist.gov/vuln/detail/" + CVE_identifiers[i])
             cvss_vers_btn = driver.find_element(By.ID, 'btn-cvss2')
@@ -172,13 +183,8 @@ def danger_lvl_form(records_CVE):
                 danger_lvl_text = critical + danger_lvl_text
             result.append(danger_lvl_text)
         except BaseException as exc:
-            driver.close()
-            print("Произошла непредвиденная ошибка при формировании уровня опасности уязвимости")
-            input_letter = input("Повторить выполнение ещё раз? [y/any other letter]: ")
-            if (input_letter == "y"):
-                danger_lvl_form(records_CVE)
-            else:
-                sys.exit(exc)
+            i -= 1
+        i += 1
     driver.close()
     return result
 
@@ -302,7 +308,7 @@ def init_doc(doc_path, soft_name):
     waiting_time = int((vul_count * 11) / 60)
     if (waiting_time < 1):
         waiting_time = 1
-    print("Примерное время ожидания для формирования идентификаторов ФСТЭК: ", waiting_time, " минут(а/ы)")
+    print("Примерное время ожидания для сопоставления идентификаторов ФСТЭК: ", waiting_time, " минут(а/ы)")
     records_CVE = create_table_with_BDU(doc_path, document, records_CVE)
     #records_CVE = create_table_CVE(doc_path, document, records_CVE)
     return (records_CVE)
@@ -345,7 +351,7 @@ def read_xlsx():
         sys.exit("Только файл с расширением .xlsx")
     else:
         xl_file = pandas.read_excel(xl_path)
-        xl_file = xl_file.dropna()
+       #xl_file = xl_file.dropna()
         soft_names = xl_file["Установленное ПО"].tolist()
         return soft_names
 
@@ -360,14 +366,12 @@ def old_txt_main():
 
 def main():
     soft_names = read_xlsx()
+    print(soft_names)
     doc_path = set_doc_path()
     doc_path = copy_doc(doc_path)
     for soft_name in soft_names:
-        try:
+        if (str(soft_name) != "nan"):
             init_doc(doc_path, str(soft_name))
-        except:
-            print ("Произошла непредвиденная непрошибка при работе с " + soft_name + ". Таблица с " + soft_name + " будет пропущена.")
-            continue
 
 if __name__ == '__main__':
     main()
