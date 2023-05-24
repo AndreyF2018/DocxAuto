@@ -37,10 +37,13 @@ def get_found_CVE(rows, cols, records, driver):
 def vulnerabilities_search_CVE(soft_name):
     try:
         driver = webdriver.Chrome()
-    except:
-        sys.exit("Возникла ошибка с веб драйвером Chrome")
-    driver.get("https://cve.mitre.org/cve/search_cve_list.html")
-    print(driver.title)
+        driver.get("https://cve.mitre.org/cve/search_cve_list.html")
+        print(driver.title)
+    except BaseException as exc:
+        print("Возникла ошибка с веб драйвером Chrome")
+        print(exc)
+        print("Повторная попытка...")
+        vulnerabilities_search_CVE(soft_name)
     elem = driver.find_element(By.NAME, "keyword")
     elem.send_keys(soft_name)
     elem.submit()
@@ -78,10 +81,12 @@ def vulnerabilities_search_BDU(records_CVE):
         value = "Отсутствует"
         records_BDU.append(value)
         return records_BDU
-    try :
+    try:
         driver = webdriver.Firefox()
-    except:
-        sys.exit("Возникла ошибка с веб драйвером FireFox")
+    except BaseException as exc:
+        print("Возникла ошибка с веб драйвером Chrome")
+        print(exc)
+        print("Повторная попытка...")
     print("Сопоставление идентификаторов CVE и ФСТЭК...")
     try:
         driver.get("https://bdu.fstec.ru/vul/")
@@ -92,8 +97,12 @@ def vulnerabilities_search_BDU(records_CVE):
         #button_search = driver.find_element(By.XPATH, value='//*[@id="s2id_VulFilterForm_idval"]/a/span[2]')
         #button_submit = driver.find_element(By.XPATH, value='//*[@id="vul-filter-form"]/div[11]/input[2]')
     except BaseException as exc:
+        driver.close()
         print (exc.__traceback__)
-        sys.exit("Возникла ошибка с доступом к сайту ФСТЭК")
+        print("Возникла ошибка с доступом к сайту ФСТЭК")
+        print(exc.__traceback__)
+        print ("Повторная попытка...")
+        vulnerabilities_search_BDU(records_CVE)
     i = 0
     while i < len(CVE_identifiers):
         try:
@@ -127,10 +136,16 @@ def vulnerabilities_search_BDU(records_CVE):
                 value = WebDriverWait(driver, 20).until(
                     EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
                 time.sleep(2)
-                while (value == default_value):
-                    time.sleep(1)
-                    value = WebDriverWait(driver, 20).until(
-                        EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
+                if (i != 0):
+                    while (value == default_value or value == records_BDU[i-1]):
+                        time.sleep(1)
+                        value = WebDriverWait(driver, 20).until(
+                            EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
+                else :
+                    while (value == default_value):
+                        time.sleep(1)
+                        value = WebDriverWait(driver, 20).until(
+                            EC.presence_of_element_located((By.XPATH, '//*[@id="vuls"]/table/tbody/tr/td[1]/h4/a'))).text
             print(CVE_identifiers[i], " --- ", value)
             print()
             records_BDU.append(value)
@@ -155,8 +170,11 @@ def danger_lvl_form(records_CVE):
     critical = "Критический "
     try:
         driver = webdriver.Chrome()
-    except:
-        sys.exit("Возникла ошибка с веб драйвером Chrome")
+    except BaseException as exc:
+        print("Возникла ошибка с веб драйвером Chrome")
+        print (exc)
+        print ("Повторная попытка...")
+        danger_lvl_form(records_CVE)
     time.sleep(1)
     i = 0
     while i < len(CVE_identifiers):
